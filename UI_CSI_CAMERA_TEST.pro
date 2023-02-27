@@ -31,14 +31,12 @@ SOURCES += \
         main.cpp \
         mainwindow.cpp \
     camera_gpio.cpp \
-    mythread.cpp \
-    socketserver.cpp
+    mythread.cpp
 
 HEADERS += \
         mainwindow.h \
     camera_gpio.h \
-    mythread.h \
-    socketserver.h
+    mythread.h
 
 FORMS += \
         mainwindow.ui

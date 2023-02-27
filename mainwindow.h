@@ -18,6 +18,11 @@
 #include <QComboBox>
 #include <JetsonGPIO.h>
 #include <QThread>
+#include <QTcpServer>
+#include <QTcpSocket>
+#include <QDir>
+#include <QBuffer>
+
 using namespace cv;
 using namespace std;
 namespace Ui {
@@ -33,6 +38,12 @@ public:
     ~MainWindow();
     void BinarzationStack();
     void testgpio();
+    void socket();
+    void Send(QString sum);
+    void Close();
+    QTcpSocket *qtcpSocket;
+    QTcpServer *qtcpServer;
+    void SendPicture();
 
 private slots:
     void camera_select();
@@ -72,6 +83,8 @@ private slots:
     //抓取图片
     void on_addpic_clicked();
 
+
+    void on_pushButton_clicked();
 
 private:
     Ui::MainWindow *ui;

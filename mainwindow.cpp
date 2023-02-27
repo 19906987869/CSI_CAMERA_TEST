@@ -9,7 +9,6 @@
 #include <QTimer>
 #include <QTime>
 #include "mythread.h"
-#include "socketserver.h"
 
 
 using namespace cv;
@@ -17,6 +16,8 @@ int count = 1;
 int count1 = 1;
 int count2 = 1;
 int count3 = 1;
+int syn = 1;
+int eros = 1;
 int flag = 0;
 int flagcamera = 0;
 int flag1 = 0;
@@ -39,6 +40,7 @@ MainWindow::MainWindow(QWidget *parent) :
     param();
     ui->frame_rate->setEnabled(false);
 //    testgpio();
+    socket();
 
 }
 
@@ -174,12 +176,6 @@ void MainWindow::importFrame(){
     QImage  image = QImage((uchar*)frame.data,frame.cols,frame.rows,QImage::Format_RGB888).rgbSwapped();
     ui->Camera_view->setPixmap(QPixmap::fromImage(image));
     ui->Camera_view->show();
-//    if(count1<=300){
-//        QString countstr = QString("%1").arg(count1);
-//        QString picstr = "/home/nano/Desktop/img/camera0/"+countstr+".jpg";
-//        image.save(picstr);
-//    }
-//    count1++;
 }
 
 //手动曝光时间参数值设置
@@ -903,15 +899,12 @@ void MainWindow::BinarzationStack(){
     std::vector<uchar>colorvalue;
     int cnt = 1;
     while(cnt<500){
-//        qDebug() << cnt << "8";
         QString str = QString("%1").arg(cnt);
-        QString strs = "/home/nano/Desktop/img/img"+str+".jpg";
+        QString strs = "/home/nano/Desktop/img/img/img"+str+".jpg";
         Mat img = imread(strs.toUtf8().data());
         if(img.empty()){
-//            qDebug() << "if" << "8";
             break;
         }
-//        qDebug() << "if" << "7";
         Mat gray_img;
         cvtColor(img,gray_img,COLOR_BGR2GRAY,0);
         heights = gray_img.rows;
@@ -946,8 +939,11 @@ void MainWindow::BinarzationStack(){
         stack_img.at<uchar>(pointsvalue[k].x,pointsvalue[k].y)=colorvalue[k];
 
     }
-    imshow("1",stack_img);
-    imwrite("/home/nano/Desktop/share/synthesis/合成.png",stack_img);
+    //imshow("1",stack_img);
+    QString synt = QString("%1").arg(syn);
+    QString synth = "/home/nano/Desktop/img/img_synthesis/合成"+synt+".jpg";
+    imwrite(synth.toStdString(),stack_img);
+    syn++;
     pointsvalue.clear();
     colorvalue.clear();
     ImageCorrosion(stack_img);
@@ -983,13 +979,15 @@ void MainWindow::ImageCorrosion(Mat img){
        }
    }
    img = k;
- //   cvtColor(img,img,CV_BGR2GRAY);
-   imshow("2",img);
-   imwrite("/home/nano/Desktop/img/test/fushi.png",img);
+   //imshow("2",img);
+   QString erosi = QString("%1").arg(eros);
+   QString erosion = "/home/nano/Desktop/img/img_erosion/合成"+erosi+".jpg";
+   imwrite(erosion.toStdString(),img);
+   eros++;
    Mat dis_img(img.size(),CV_32FC1);
    distanceTransform(img,dis_img,CV_DIST_L2,3);
    normalize(dis_img,dis_img,0,1.0,CV_MINMAX);
-   imshow("3",dis_img);
+   //imshow("3",dis_img);
    dis_img.convertTo(dis_img,CV_8UC1);
    //int oustv = OustAlgorithm(dis_img);
    threshold(dis_img,dis_img,0,255,THRESH_BINARY | THRESH_OTSU);
@@ -997,12 +995,11 @@ void MainWindow::ImageCorrosion(Mat img){
    vector<Vec4i> hierarchy;
    findContours(dis_img,contours,hierarchy,RETR_LIST,CHAIN_APPROX_NONE);
 
-   imshow("4",dis_img);
+   //imshow("4",dis_img);
   //contours.size();
    qDebug() << contours.size();
    QString s = QString::number(contours.size());
-   socketserver ser;
-   ser.Send(s);
+   Send(s);
    ui->label->setText(s);
    dis_img.release();
    k.release();
@@ -1016,47 +1013,75 @@ void MainWindow::testgpio(){
     MyThread* subThread = new MyThread;
     subThread->start();
 }
+void MainWindow::socket(){
+    qtcpServer = NULL;
+    qtcpSocket = NULL;
+    //监听套字节，指定父对象，让其自动回收空间
+    qtcpServer = new QTcpServer(this);
+    qtcpServer->listen(QHostAddress::Any,8886);
+    connect(qtcpServer,&QTcpServer::newConnection,[=](){
+        //取出建立好连接的套接字
+        qtcpSocket = qtcpServer->nextPendingConnection();
+        //获取对方的IP和端口
+        QString ip = qtcpSocket->peerAddress().toString();
+        qint16 port = qtcpSocket->peerPort();
+        QString temp = QString("[%1:%2]:成功连接").arg(ip).arg(port);
+        qDebug() << temp;
+        //必须放在里面，因为建立好链接才能读，或者说tcpSocket有指向才能操作
+        connect(qtcpSocket, &QTcpSocket::readyRead,
+                [=]()
+                {
+                    //从通信套接字中取出内容
+                    QByteArray array = qtcpSocket->readAll();
+                    qDebug() << array;
+                }
+          );
+    });
+}
 
-//Otsu阀值分割
-//int MainWindow::OustAlgorithm(Mat img){
-//    int T;
-//    float Oustvalue=0;
-//    float weight0=0,average0=0,weight1=0,average1=0;
-//    float histogram[256];
-//    uchar *data = img.data;
-//    float totalpixels = img.cols*img.rows;
-//    memset(histogram,0,256*sizeof(float));
-//    for(int i=0;i<img.rows;i++){
-//        for(int j=0;j<img.cols;j++){
-//            histogram[data[i*img.step+j]]++;
-//        }
-//    }
-//    for(int i=0;i<255;i++){
-//        weight0=0;average0=0;weight1=0;average1=0;
-//        for(int j=0;j<=i;j++){
-//            weight0+= histogram[j];
-//            average0+= histogram[j]*j;
-//        }
-//        if(weight0==0){
-//            break;
-//        }
-//        average0 = average0/weight0;
-//        weight0 = weight0/totalpixels;
-//        for(int k=i+1;k<255;k++){
-//            weight1+=histogram[k];
-//            average1+=histogram[k]*k;
-//        }
-//        if(weight1==0){
-//            break;
-//        }
-//        average1 = average1/weight1;
-//        weight1 = weight1/totalpixels;
-//        float Oustvalue1 = weight0*weight1*(average0-average1)*(average0-average1);
-//        if(Oustvalue<Oustvalue1){
-//            Oustvalue = Oustvalue1;
-//            T=i;
-//        }
-//    }
-//    return T;
-//}
+void MainWindow::Send(QString sum)
+{
+    if(NULL == qtcpSocket)
+    {
+        return;
+    }
+    //给对方发送数据， 使用套接字是tcpSocket
+    qtcpSocket->write(sum.toUtf8().data());
+}
+void MainWindow::SendPicture(){
+    QString path = "/home/nano/Desktop/img/img_erosion/";
+    QDir dir(path);
+    QStringList filters;
+    filters << "*.jpg" << "*.png";
+    dir.setNameFilters(filters);
+    QFileInfoList files = dir.entryInfoList();
+    //将图片数据写入QByteArray
+    QByteArray imageData;
+    for (int i = 0; i < files.count(); i++) {
+        QString filePath = files[i].absoluteFilePath();
+        QImage image(filePath);
+        QByteArray byteArray;
+        QBuffer buffer(&byteArray);
+        buffer.open(QIODevice::WriteOnly);
+        image.save(&buffer, "JPG");
+        imageData.append(byteArray);
+    }
+    qtcpSocket->write(imageData);
+}
+void MainWindow::Close()
+{
+    if(NULL == qtcpSocket)
+    {
+        return;
+    }
+    //主动和客户端断开连接
+    qtcpSocket->disconnectFromHost();
+    qtcpSocket->close();
+    qtcpSocket = NULL;
 
+}
+
+void MainWindow::on_pushButton_clicked()
+{
+    SendPicture();
+}
